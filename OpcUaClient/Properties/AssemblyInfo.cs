@@ -6,11 +6,11 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("OpcUaClient")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("QAS OpcUaClient")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Scania IT")]
+[assembly: AssemblyCompany("Scania")]
 [assembly: AssemblyProduct("OpcUaClient")]
-[assembly: AssemblyCopyright("Copyright © Scania IT 2018")]
+[assembly: AssemblyCopyright("Copyright © Scania 2018")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
