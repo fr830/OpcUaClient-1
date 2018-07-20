@@ -11,12 +11,16 @@ using System.Threading.Tasks;
 
 namespace OpcUaClient
 {
+    /// <summary>
+    /// Class that implements the basic OPC UA Client calls : Connect, Disconnect, ReadValues, WriteValues.
+    /// </summary>
     public class OpcUaClient
     {
+        /// <summary>
+        /// Main constructor
+        /// </summary>
         public OpcUaClient()
         {
-            //TODO: keep alive complete
-
             ApplicationInstance application = new ApplicationInstance();
             application.ConfigSectionName = "ReferenceClient";
             application.ApplicationType = ApplicationType.Client;
@@ -37,19 +41,10 @@ namespace OpcUaClient
         #region Private Fields        
         private int m_Timeout = 5000;
         private Opc.Ua.ApplicationConfiguration m_configuration;
-        private EventHandler m_ReconnectComplete;
-        private EventHandler m_ReconnectStarting;
-        private EventHandler m_KeepAliveComplete;
-        private EventHandler m_ConnectComplete;
         private CertificateValidationEventHandler m_CertificateValidation;
         #endregion
 
-        #region Public Members
-        public IUserIdentity UserIdentity { get; set; }
-
-        public string[] PreferredLocales { get; set; }
-
-        public int ReconnectPeriod { get; set; } = 10;
+        #region Public Members               
 
         public Session Session { get; private set; }
 
@@ -59,41 +54,6 @@ namespace OpcUaClient
         #endregion
 
         #region Event Handlers    
-        /// <summary>
-        /// Raised when a good keep alive from the server arrives.
-        /// </summary>
-        public event EventHandler KeepAliveComplete
-        {
-            add { m_KeepAliveComplete += value; }
-            remove { m_KeepAliveComplete -= value; }
-        }
-
-        /// <summary>
-        /// Raised when a reconnect operation starts.
-        /// </summary>
-        public event EventHandler ReconnectStarting
-        {
-            add { m_ReconnectStarting += value; }
-            remove { m_ReconnectStarting -= value; }
-        }
-
-        /// <summary>
-        /// Raised when a reconnect operation completes.
-        /// </summary>
-        public event EventHandler ReconnectComplete
-        {
-            add { m_ReconnectComplete += value; }
-            remove { m_ReconnectComplete -= value; }
-        }
-
-        /// <summary>
-        /// Raised after successfully connecting to or disconnecing from a server.
-        /// </summary>
-        public event EventHandler ConnectComplete
-        {
-            add { m_ConnectComplete += value; }
-            remove { m_ConnectComplete -= value; }
-        }
 
         private void Notification_ServerCertificate(CertificateValidator cert, CertificateValidationEventArgs e)
         {
@@ -102,11 +62,11 @@ namespace OpcUaClient
 
             try
             {
-                //Search for the server's certificate in store; if found -> accept
                 X509Store store = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
                 store.Open(OpenFlags.ReadOnly);
                 X509CertificateCollection certCol = store.Certificates.Find(X509FindType.FindByThumbprint, e.Certificate.Thumbprint, true);
                 store.Close();
+
                 if (certCol.Capacity > 0)
                 {
                     e.Accept = true;
@@ -118,7 +78,7 @@ namespace OpcUaClient
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("Exception Notification_ServerCertificate: " + ex.Message);
+                System.Diagnostics.Debug.WriteLine("Exception OpcUaClient::Notification_ServerCertificate: " + ex.Message);
             }
         }
 
@@ -136,6 +96,8 @@ namespace OpcUaClient
             ConfiguredEndpoint endpoint = null;
             EndpointDescription endpointDescription = null;
             EndpointConfiguration endpointConfiguration = null;
+            UserIdentity userIdentity = null;
+            string[] preferredLocales = null;
 
             try
             {
@@ -168,20 +130,21 @@ namespace OpcUaClient
                     endpoint = new ConfiguredEndpoint(null, endpointDescription, endpointConfiguration);
 
                     //establishes the connection and creates the session 
-                    Session = await Session.Create(
-                        m_configuration,
-                        endpoint,
-                        updateBeforeConnect: false,
-                        checkDomain: true,
-                        sessionName: m_configuration.ApplicationName,
-                        sessionTimeout: 60000,
-                        identity: UserIdentity,
-                        preferredLocales: PreferredLocales);
+                    this.Session = await Session.Create(
+                                    m_configuration,
+                                    endpoint,
+                                    updateBeforeConnect: false,
+                                    checkDomain: true,
+                                    sessionName: m_configuration.ApplicationName,
+                                    sessionTimeout: 60000,
+                                    identity: userIdentity,
+                                    preferredLocales: preferredLocales);
+
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine(String.Format("Exception Connect: " + ex.ToString()));
+                System.Diagnostics.Debug.WriteLine(String.Format("Exception OpcUaClient::Connect: " + ex.ToString()));
             }
         }
 
@@ -202,7 +165,7 @@ namespace OpcUaClient
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("Exception OpcUaWrapper::Disconnect " + ex.Message);
+                System.Diagnostics.Debug.WriteLine("Exception OpcUaClient::Disconnect " + ex.Message);
             }
         }
 
@@ -226,7 +189,7 @@ namespace OpcUaClient
                 foreach (string node in opcNodes)
                 {
                     nodeIds.Add(new NodeId(node));
-                    expectedTypes.Add(null);  //the reading can return any type
+                    expectedTypes.Add(null);  //no need to specify the data type
                 }
 
                 Session.ReadValues(nodeIds, null, out values, out statusCodes);
@@ -242,7 +205,7 @@ namespace OpcUaClient
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("Exception OpcUaWrapper::ReadValues " + ex.Message);
+                System.Diagnostics.Debug.WriteLine("Exception OpcUaClient::ReadValues " + ex.Message);
             }
 
             return opcValues;
@@ -288,14 +251,14 @@ namespace OpcUaClient
                 for (int i = 0; i < count; i++)
                 {
                     status[i] = StatusCode.IsGood(statusCodes[i]);
-                    ret = status[i] & status[i];
+                    ret = ret & status[i];
                 }
             }
             catch (Exception ex)
             {
                 ret = false;
                 status = null;
-                System.Diagnostics.Debug.WriteLine("Exception OpcUaWrapper::WriteValues " + ex.Message);
+                System.Diagnostics.Debug.WriteLine("Exception OpcUaClient::WriteValues " + ex.Message);
             }
 
             return ret;
@@ -334,7 +297,7 @@ namespace OpcUaClient
             {
                 endPointsList?.Clear();
                 endPointsList = null;
-                System.Diagnostics.Debug.WriteLine("OpcUaWrapper::ListEndpoints" + ex.Message);
+                System.Diagnostics.Debug.WriteLine("OpcUaClient::ListEndpoints" + ex.Message);
             }
 
             return endPointsList;
@@ -356,7 +319,7 @@ namespace OpcUaClient
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("OpcUaWrapper::FindServers" + ex.Message);
+                System.Diagnostics.Debug.WriteLine("OpcUaClient::FindServers" + ex.Message);
             }
 
             return servers;
@@ -378,7 +341,7 @@ namespace OpcUaClient
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("OpcUaWrapper::GetEndpoints" + ex.Message);
+                System.Diagnostics.Debug.WriteLine("OpcUaClient::GetEndpoints" + ex.Message);
             }
 
             return endpoints;
